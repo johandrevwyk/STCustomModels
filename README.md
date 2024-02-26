@@ -17,7 +17,7 @@ Be sure to edit **config.json** and enter database details + models
 
 # Usage
 
-!models
+!models\
 !setmodel index
 
 
