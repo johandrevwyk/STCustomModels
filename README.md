@@ -16,4 +16,4 @@ You need to load the models in ResourcePrecacher and copy them to server directo
 Be sure to edit **config.json** and enter database details + models
 
 
-**Credit to DEAFPS**
+**Credit to [DEAFPS](https://github.com/DEAFPS/)**
