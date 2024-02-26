@@ -1,7 +1,7 @@
 
 # SharpTimer Custom Models
 
-This plugin allows you to allow custom models to VIP users using SharpTimer
+This plugin allows you to add and give access to custom models for VIP users using SharpTimer (there is also an option to make it public)
 
 # Requirements
 
