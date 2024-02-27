@@ -15,7 +15,7 @@ namespace STCustomModels
     public partial class STCustomModels : BasePlugin
     {
         public override string ModuleName => "STCustomModels";
-        public override string ModuleVersion => $"1.0 - {DateTime.UtcNow}";
+        public override string ModuleVersion => $"1.0 - {new DateTime(Builtin.CompileTime, DateTimeKind.Utc)}";
         public override string ModuleAuthor => "heartbreakhotel (deafps)";
         public override string ModuleDescription => "A plugin for custom player models in SharpTimer";
 
@@ -31,8 +31,69 @@ namespace STCustomModels
             GameDir = Server.GameDirectory;
             LoadConfig();
             
-            ModelDir = GetModelsValue();   
-            
+            ModelDir = GetModelsValue();
+
+            RegisterEventHandler<EventPlayerSpawned>((@event, info) =>
+            {
+                if (@event.Userid == null) return HookResult.Continue;
+
+                var player = @event.Userid;
+
+                if (player.IsBot || !player.IsValid || player == null)
+                {
+                    return HookResult.Continue;
+                }
+                else
+                {
+                    // Check if VIP functionality is enabled
+                    if (Configuration?.General.RequiresVIP ?? true)
+                    {
+                        // Retrieve VIP status of the player
+                        var vipStatus = GetVipStatus(player);
+
+                        if (vipStatus)
+                        {
+                            var connectionString = $"Server={Configuration!.Database.HostName};Port={Configuration!.Database.Port};Database={Configuration!.Database.DataBase};Uid={Configuration!.Database.Username};Pwd={Configuration!.Database.Password};";
+                            
+                            var activemodel = "null";
+
+                            using (var connection = new MySqlConnection(connectionString))
+                            {
+                                connection.Open();
+
+                                const string query = "SELECT model FROM PlayerStats WHERE SteamID = @SID";
+
+                                using (var command = new MySqlCommand(query, connection))
+                                {
+                                    command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
+
+                                    using (var reader = command.ExecuteReader())
+                                    {
+                                        if (reader.Read())
+                                        {
+                                            activemodel = reader.GetString("model");
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (activemodel != null)
+                            {
+                                AddTimer(0.2f, () =>
+                                {
+                                    if (player.IsBot || !player.IsValid || player == null) return;
+                                    player.Respawn();
+                                    player.Pawn.Value.SetModel(activemodel);
+                                    Console.WriteLine($"[SharpModelSetter] Model set to {ModelDir} for {player.PlayerName}");
+                                });
+                            }
+                        }
+                    }
+
+                    return HookResult.Continue;
+                }
+            });
+
             Console.WriteLine("[STCustomModels] Plugin Loaded");
         }
 
@@ -70,6 +131,8 @@ namespace STCustomModels
                     string modelName = Path.GetFileNameWithoutExtension(modelPath);
                     player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Model set to: {ChatColors.Red}{modelName}");
                 });
+
+
             }
             else
             {
