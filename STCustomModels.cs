@@ -44,7 +44,7 @@ namespace STCustomModels
         public override void Load(bool hotReload)
         {
             GameDir = Server.GameDirectory;
-            LoadConfigAsync().Wait(); // Changed to call asynchronous method
+            LoadConfigAsync().Wait(); 
 
             ModelDir = GetModelsValue();
 
@@ -66,7 +66,6 @@ namespace STCustomModels
                 }
             }
 
-            // Register the event handler without using async lambda
             RegisterEventHandler<EventPlayerSpawned>(OnPlayerSpawned);
 
             Console.WriteLine("[STCustomModels] Plugin Loaded");
@@ -74,7 +73,6 @@ namespace STCustomModels
 
 
 
-        // Define a separate method to handle the event
         private HookResult OnPlayerSpawned(EventPlayerSpawned @event, GameEventInfo info)
         {
             var task = Task.Run(async () =>
@@ -97,7 +95,7 @@ namespace STCustomModels
 
                     using (var connection = new MySqlConnection(connectionString))
                     {
-                        await connection.OpenAsync(); // Changed to asynchronous open
+                        await connection.OpenAsync(); 
 
                         const string query = "SELECT model FROM PlayerModels WHERE SteamID = @SID";
 
@@ -105,9 +103,9 @@ namespace STCustomModels
                         {
                             command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
 
-                            using (var reader = await command.ExecuteReaderAsync()) // Changed to asynchronous execution
+                            using (var reader = await command.ExecuteReaderAsync()) 
                             {
-                                if (await reader.ReadAsync()) // Changed to asynchronous read
+                                if (await reader.ReadAsync()) 
                                 {
                                     activemodel = reader.GetString("model");
                                 }
@@ -117,7 +115,7 @@ namespace STCustomModels
 
                     if (Configuration?.General.RequiresVIP ?? true)
                     {
-                        var vipStatus = await GetVipStatusAsync(player); // Changed to asynchronous method
+                        var vipStatus = await GetVipStatusAsync(player); 
 
                         if (vipStatus)
                         {
@@ -153,8 +151,8 @@ namespace STCustomModels
                 }
             });
 
-            task.Wait(); // Wait for the task to complete
-            return task.Result; // Return the result of the task
+            task.Wait(); 
+            return task.Result; 
         }
 
         [ConsoleCommand("css_setmodel", "sets your model by index from cfg")]
