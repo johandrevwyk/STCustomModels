@@ -44,7 +44,7 @@ namespace STCustomModels
         public override void Load(bool hotReload)
         {
             GameDir = Server.GameDirectory;
-            LoadConfigAsync().Wait();
+            LoadConfigAsync().Wait(); // Changed to call asynchronous method
 
             ModelDir = GetModelsValue();
 
@@ -55,10 +55,10 @@ namespace STCustomModels
                 connection.Open();
 
                 const string createTableQuery = @"
-                CREATE TABLE IF NOT EXISTS `PlayerModels` (
-                  `steamid` varchar(255) NOT NULL,
-                  `model` varchar(255) NOT NULL
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;";
+            CREATE TABLE IF NOT EXISTS `PlayerModels` (
+            `steamid` varchar(255) NOT NULL,
+            `model` varchar(255) NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;";
 
                 using (var createTableCommand = new MySqlCommand(createTableQuery, connection))
                 {
@@ -66,7 +66,18 @@ namespace STCustomModels
                 }
             }
 
-            RegisterEventHandler<EventPlayerSpawned>(async (@event, info) => 
+            // Register the event handler without using async lambda
+            RegisterEventHandler<EventPlayerSpawned>(OnPlayerSpawned);
+
+            Console.WriteLine("[STCustomModels] Plugin Loaded");
+        }
+
+
+
+        // Define a separate method to handle the event
+        private HookResult OnPlayerSpawned(EventPlayerSpawned @event, GameEventInfo info)
+        {
+            var task = Task.Run(async () =>
             {
                 if (@event.Userid == null) return HookResult.Continue;
 
@@ -86,7 +97,7 @@ namespace STCustomModels
 
                     using (var connection = new MySqlConnection(connectionString))
                     {
-                        await connection.OpenAsync(); 
+                        await connection.OpenAsync(); // Changed to asynchronous open
 
                         const string query = "SELECT model FROM PlayerModels WHERE SteamID = @SID";
 
@@ -94,9 +105,9 @@ namespace STCustomModels
                         {
                             command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
 
-                            using (var reader = await command.ExecuteReaderAsync()) 
+                            using (var reader = await command.ExecuteReaderAsync()) // Changed to asynchronous execution
                             {
-                                if (await reader.ReadAsync()) 
+                                if (await reader.ReadAsync()) // Changed to asynchronous read
                                 {
                                     activemodel = reader.GetString("model");
                                 }
@@ -106,11 +117,10 @@ namespace STCustomModels
 
                     if (Configuration?.General.RequiresVIP ?? true)
                     {
-                        var vipStatus = await GetVipStatusAsync(player);
+                        var vipStatus = await GetVipStatusAsync(player); // Changed to asynchronous method
 
                         if (vipStatus)
                         {
-
                             if (activemodel != null)
                             {
                                 AddTimer(0.2f, () =>
@@ -143,8 +153,9 @@ namespace STCustomModels
                 }
             });
 
-            Console.WriteLine("[STCustomModels] Plugin Loaded");
-        }
+            task.Wait(); // Wait for the task to complete
+            return task.Result; // Return the result of the task
+        
 
         [ConsoleCommand("css_setmodel", "sets your model by index from cfg")]
         [CommandHelper(minArgs: 1, usage: "!setmodel [index]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
