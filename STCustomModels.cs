@@ -155,7 +155,7 @@ namespace STCustomModels
 
             task.Wait(); // Wait for the task to complete
             return task.Result; // Return the result of the task
-        
+        }
 
         [ConsoleCommand("css_setmodel", "sets your model by index from cfg")]
         [CommandHelper(minArgs: 1, usage: "!setmodel [index]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
