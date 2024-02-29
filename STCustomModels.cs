@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using System.Reflection;
 using System.Text.Json;
+using System.Threading.Tasks; // Added for async support
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
@@ -9,6 +12,7 @@ using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Utils;
 using MySqlConnector;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq; // Added for JSON handling
 using JsonException = Newtonsoft.Json.JsonException;
 
 namespace STCustomModels
@@ -40,8 +44,8 @@ namespace STCustomModels
         public override void Load(bool hotReload)
         {
             GameDir = Server.GameDirectory;
-            LoadConfig();
-            
+            LoadConfigAsync().Wait();
+
             ModelDir = GetModelsValue();
 
             var connectionString = $"Server={Configuration!.Database.HostName};Port={Configuration!.Database.Port};Database={Configuration!.Database.DataBase};Uid={Configuration!.Database.Username};Pwd={Configuration!.Database.Password};";
@@ -62,7 +66,7 @@ namespace STCustomModels
                 }
             }
 
-            RegisterEventHandler<EventPlayerSpawned>((@event, info) =>
+            RegisterEventHandler<EventPlayerSpawned>(async (@event, info) => 
             {
                 if (@event.Userid == null) return HookResult.Continue;
 
@@ -82,7 +86,7 @@ namespace STCustomModels
 
                     using (var connection = new MySqlConnection(connectionString))
                     {
-                        connection.Open();
+                        await connection.OpenAsync(); 
 
                         const string query = "SELECT model FROM PlayerModels WHERE SteamID = @SID";
 
@@ -90,9 +94,9 @@ namespace STCustomModels
                         {
                             command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
 
-                            using (var reader = command.ExecuteReader())
+                            using (var reader = await command.ExecuteReaderAsync()) 
                             {
-                                if (reader.Read())
+                                if (await reader.ReadAsync()) 
                                 {
                                     activemodel = reader.GetString("model");
                                 }
@@ -102,7 +106,7 @@ namespace STCustomModels
 
                     if (Configuration?.General.RequiresVIP ?? true)
                     {
-                        var vipStatus = GetVipStatus(player);
+                        var vipStatus = await GetVipStatusAsync(player);
 
                         if (vipStatus)
                         {
@@ -120,7 +124,8 @@ namespace STCustomModels
 
                             return HookResult.Continue;
                         }
-                    } else
+                    }
+                    else
                     {
                         if (activemodel != null)
                         {
@@ -143,11 +148,13 @@ namespace STCustomModels
 
         [ConsoleCommand("css_setmodel", "sets your model by index from cfg")]
         [CommandHelper(minArgs: 1, usage: "!setmodel [index]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
-        public void SetModel(CCSPlayerController? player, CommandInfo command)
+        public async void SetModel(CCSPlayerController? player, CommandInfo command) 
         {
+            await LoadConfigAsync(); 
+
             if (Configuration?.General.RequiresVIP ?? true)
             {
-                var vipStatus = GetVipStatus(player);
+                var vipStatus = await GetVipStatusAsync(player); 
 
                 if (!vipStatus)
                 {
@@ -170,7 +177,7 @@ namespace STCustomModels
 
                 using (var connection = new MySqlConnection(connectionString))
                 {
-                    connection.Open();
+                    await connection.OpenAsync(); 
 
                     const string query = "UPDATE PlayerModels SET model = @ModelPath WHERE SteamID = @SID";
 
@@ -179,7 +186,7 @@ namespace STCustomModels
                         commandsql.Parameters.AddWithValue("@ModelPath", modelPath);
                         commandsql.Parameters.AddWithValue("@SID", player.SteamID.ToString());
 
-                        int rowsAffected = commandsql.ExecuteNonQuery();
+                        int rowsAffected = await commandsql.ExecuteNonQueryAsync(); 
 
                         if (rowsAffected == 0)
                         {
@@ -190,7 +197,7 @@ namespace STCustomModels
                                 insertCommand.Parameters.AddWithValue("@SID", player.SteamID.ToString());
                                 insertCommand.Parameters.AddWithValue("@ModelPath", modelPath);
 
-                                insertCommand.ExecuteNonQuery();
+                                await insertCommand.ExecuteNonQueryAsync();
                             }
 
                             Console.WriteLine($"Inserted a new model record for SteamID: {player.SteamID}");
@@ -207,8 +214,6 @@ namespace STCustomModels
                     string modelName = Path.GetFileNameWithoutExtension(modelPath);
                     player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Model set to: {ChatColors.Red}{modelName}");
                 });
-
-
             }
             else
             {
@@ -216,62 +221,53 @@ namespace STCustomModels
             }
         }
 
-
         [ConsoleCommand("css_models", "lists all models")]
         [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
-        public void ListModels(CCSPlayerController? player, CommandInfo command)
+        public async void ListModels(CCSPlayerController? player, CommandInfo command) 
         {
+            await LoadConfigAsync(); 
+
             if (Configuration?.General.RequiresVIP ?? true)
             {
-                var vipStatus = GetVipStatus(player);
-              
-                if (!vipStatus) 
+                var vipStatus = await GetVipStatusAsync(player);
+
+                if (!vipStatus)
                 {
                     player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}This function is limited to {ChatColors.Red}VIP{ChatColors.Default} users");
                     return;
                 }
             }
 
-            
-            PrintAllModels(player);
+            await PrintAllModels(player);
         }
 
-        private void PrintAllModels(CCSPlayerController? player)
+        private async Task LoadConfigAsync() 
         {
-            try
-            {
-                
-                var models = Configuration!.Models;
+            GameDir = Server.GameDirectory;
+            var jsonPath = Path.Join(GameDir + "/csgo/addons/counterstrikesharp/plugins/STCustomModels", "config.json");
 
-                var index = 0;
-                foreach (var model in models)
-                {
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} -{ChatColors.Default} #{index++}: {model.Name}");
-                }
-                
-            }
-            catch (FileNotFoundException)
+            using (var stream = File.OpenRead(jsonPath))
+            using (var reader = new StreamReader(stream))
             {
-                Console.WriteLine("JSON file not found.");
-            }
-            catch (JsonException)
-            {
-                Console.WriteLine("Error parsing JSON.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error: " + ex.Message);
+                var json = await reader.ReadToEndAsync(); 
+                Configuration = JsonConvert.DeserializeObject<Config>(json);
+
+                if (Configuration == null)
+                    throw new JsonException("Configuration could not be loaded");
             }
         }
-        private bool GetVipStatus(CCSPlayerController? player)
-        {           
+
+        private async Task<bool> GetVipStatusAsync(CCSPlayerController? player) 
+        {
+            await LoadConfigAsync(); 
+
             var connectionString = $"Server={Configuration!.Database.HostName};Port={Configuration!.Database.Port};Database={Configuration!.Database.DataBase};Uid={Configuration!.Database.Username};Pwd={Configuration!.Database.Password};";
 
             var isVip = false;
-            
+
             using (var connection = new MySqlConnection(connectionString))
             {
-                connection.Open();
+                await connection.OpenAsync(); 
 
                 const string query = "SELECT IsVip FROM PlayerStats WHERE SteamID = @SID";
 
@@ -279,9 +275,9 @@ namespace STCustomModels
                 {
                     command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
 
-                    using (var reader = command.ExecuteReader())
+                    using (var reader = await command.ExecuteReaderAsync()) 
                     {
-                        if (reader.Read())
+                        if (await reader.ReadAsync()) 
                         {
                             isVip = reader.GetBoolean("IsVip");
                         }
@@ -318,6 +314,35 @@ namespace STCustomModels
             {
                 Console.WriteLine("Error: " + ex.Message);
                 return null;
+            }
+        }
+
+        private async Task PrintAllModels(CCSPlayerController? player)
+        {
+            try
+            {
+                await LoadConfigAsync(); 
+
+                var models = Configuration!.Models;
+
+                var index = 0;
+                foreach (var model in models)
+                {
+                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} -{ChatColors.Default} #{index++}: {model.Name}");
+                }
+
+            }
+            catch (FileNotFoundException)
+            {
+                Console.WriteLine("JSON file not found.");
+            }
+            catch (JsonException)
+            {
+                Console.WriteLine("Error parsing JSON.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
             }
         }
 
