@@ -52,7 +52,7 @@ namespace STCustomModels
                                             if (player.IsBot || !player.IsValid || player == null) return;
                                             //player.Respawn();
                                             player.Pawn.Value.SetModel(activemodel);
-                                            Console.WriteLine($"[SharpModelSetter] Model set to {ModelDir} for {player.PlayerName}");
+                                            Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
 
                                         });
                                     }
@@ -77,7 +77,7 @@ namespace STCustomModels
                                         if (player.IsBot || !player.IsValid || player == null) return;
                                         //player.Respawn();
                                         player.Pawn.Value.SetModel(activemodel);
-                                        Console.WriteLine($"[SharpModelSetter] Model set to {ModelDir} for {player.PlayerName}");
+                                        Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
 
                                     });
                                 });

@@ -3,11 +3,13 @@
 
 This plugin allows you to add and give access to custom models for VIP users using SharpTimer (there is also an option to make it public)
 
+Saves/loads models from database specified
+
 # Requirements
 
-[CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp)\
+[CounterStrikeSharp v188](https://github.com/roflmuffin/CounterStrikeSharp)\
 [SharpTimer](https://github.com/DEAFPS/SharpTimer)\
-[CS2Fixes (dual mount addon)](https://github.com/Source2ZE/CS2Fixes)\
+[MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager)\
 [ResourcePrecacher](https://github.com/KillStr3aK/ResourcePrecacher)
 
 
