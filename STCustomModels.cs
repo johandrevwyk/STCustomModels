@@ -11,11 +11,11 @@ using JsonException = Newtonsoft.Json.JsonException;
 
 namespace STCustomModels
 {
-    [MinimumApiVersion(165)]
+    [MinimumApiVersion(188)]
     public partial class STCustomModels : BasePlugin
     {
         public override string ModuleName => "STCustomModels";
-        public override string ModuleVersion => $"1.0 - {DateTime.UtcNow}";
+        public override string ModuleVersion => $"1.1 - {new DateTime(Builtin.CompileTime, DateTimeKind.Utc)}"; // im too lazy to fix this
         public override string ModuleAuthor => "heartbreakhotel (deafps)";
         public override string ModuleDescription => "A plugin for custom player models in SharpTimer";
 
@@ -29,86 +29,31 @@ namespace STCustomModels
         public override void Load(bool hotReload)
         {
             GameDir = Server.GameDirectory;
+
+            RegisterListeners();
+            
+            
+            //Initialize config and database
             LoadConfig();
-            
-            ModelDir = GetModelsValue();   
-            
+            CreatePlayerModelsTableIfNotExists();
+
+
+
             Console.WriteLine("[STCustomModels] Plugin Loaded");
         }
 
-        [ConsoleCommand("css_setmodel", "sets your model by index from cfg")]
-        [CommandHelper(minArgs: 1, usage: "!setmodel [index]", whoCanExecute: CommandUsage.CLIENT_ONLY)]
-        public void SetModel(CCSPlayerController? player, CommandInfo command)
-        {
-            if (Configuration?.General.RequiresVIP ?? true)
-            {
-                var vipStatus = GetVipStatus(player);
-
-                if (!vipStatus)
-                {
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}This function is limited to {ChatColors.Red}VIP{ChatColors.Default} users");
-                    return;
-                }
-            }
-
-            if (int.TryParse(command.GetArg(1), out var index))
-            {
-                var modelPath = GetModelsValue(index);
-
-                if (string.IsNullOrEmpty(modelPath))
-                {
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default} Incorrect model");
-                    return;
-                }
-
-                AddTimer(0.2f, () =>
-                {
-                    if (player.IsBot || !player.IsValid || player == null) return;
-                    player.Respawn();
-                    player.Pawn.Value.SetModel(modelPath);
-                    Console.WriteLine($"[STCustomModels] Model set to {modelPath} for {player.PlayerName} from chat command");
-                    string modelName = Path.GetFileNameWithoutExtension(modelPath);
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Model set to: {ChatColors.Red}{modelName}");
-                });
-            }
-            else
-            {
-                player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Incorrect model");
-            }
-        }
-
-
-        [ConsoleCommand("css_models", "lists all models")]
-        [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
-        public void ListModels(CCSPlayerController? player, CommandInfo command)
-        {
-            // Check the configuration to see if VIP check is required
-            if (Configuration?.General.RequiresVIP ?? true)
-            {
-                var vipStatus = GetVipStatus(player);
-              
-                if (!vipStatus) 
-                {
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}This function is limited to {ChatColors.Red}VIP{ChatColors.Default} users");
-                    return;
-                }
-            }
-
-            
-            PrintAllModels(player);
-        }
-
-        private void PrintAllModels(CCSPlayerController? player)
+        public async Task PrintAllModels(CCSPlayerController? player)
         {
             try
             {
-                
+                ModelDir = await GetModelsValue();
                 var models = Configuration!.Models;
+
 
                 var index = 0;
                 foreach (var model in models)
                 {
-                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} -{ChatColors.Default} #{index++}: {model.Name}");
+                    Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} -{ChatColors.Default} #{index++}: {model.Name}"));
                 }
                 
             }
@@ -125,36 +70,71 @@ namespace STCustomModels
                 Console.WriteLine("Error: " + ex.Message);
             }
         }
-        private bool GetVipStatus(CCSPlayerController? player)
-        {           
-            var connectionString = $"Server={Configuration!.Database.HostName};Port={Configuration!.Database.Port};Database={Configuration!.Database.DataBase};Uid={Configuration!.Database.Username};Pwd={Configuration!.Database.Password};";
 
-            var isVip = false;
-            
-            using (var connection = new MySqlConnection(connectionString))
+        public async Task SetModel(CCSPlayerController? player, string arg, string steamid)
+        {
+            if (Configuration?.General.RequiresVIP ?? true)
             {
-                connection.Open();
-
-                const string query = "SELECT IsVip FROM PlayerStats WHERE SteamID = @SID";
-
-                using (var command = new MySqlCommand(query, connection))
+                if (await GetVipStatusAsync(steamid) == false)
                 {
-                    command.Parameters.AddWithValue("@SID", player.SteamID.ToString());
-
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            isVip = reader.GetBoolean("IsVip");
-                        }
-                    }
+                    Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}This function is limited to {ChatColors.Red}VIP{ChatColors.Default} users"));
+                    return;
                 }
             }
 
-            return isVip;
+            if (int.TryParse(arg, out var index))
+            {
+                var modelPath = await GetModelsValue(index);
+                Console.WriteLine(modelPath);
+                if (string.IsNullOrEmpty(modelPath))
+                {
+                    Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default} Incorrect model"));
+                    return;
+                }
+
+                Server.NextFrame(() =>
+                {
+                    if (player.IsBot || !player.IsValid || player == null) return;
+                    Console.WriteLine("respawning");
+                    //player.Respawn();
+                    player.Pawn.Value.SetModel(modelPath);
+                    Console.WriteLine($"[STCustomModels] Model set to {modelPath} for {player.PlayerName} from chat command");
+                    player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Model set to: {ChatColors.Red}{modelPath}");
+                });
+
+                bool recordExists = await CheckIfRecordExists(steamid);
+
+                if (recordExists)
+                    await UpdateModel(steamid, modelPath);
+                else
+                    await InsertModel(steamid, modelPath);
+            }
+            else
+            {
+                Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Incorrect model"));
+            }
         }
 
-        private string GetModelsValue(int index = 0)
+        private async Task ListModels(CCSPlayerController? player)
+        {
+            if (Configuration?.General.RequiresVIP ?? true)
+            {
+                if (await GetVipStatusAsync(player.SteamID.ToString()) == false)
+                {
+                    Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}This function is limited to {ChatColors.Red}VIP{ChatColors.Default} users"));
+                    return;
+                }
+            }
+
+            await PrintAllModels(player);
+        }
+
+        public void IDontEvenKnow(CCSPlayerController? player)
+        {
+
+        }
+
+        public async Task <string?> GetModelsValue(int index = 0)
         {
             try
             {
