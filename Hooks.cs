@@ -46,12 +46,12 @@ namespace STCustomModels
 
                                     if (activemodel != null)
                                     {
-
                                         Server.NextFrame(() =>
                                         {
                                             if (player.IsBot || !player.IsValid || player == null) return;
                                             //player.Respawn();
                                             player.Pawn.Value.SetModel(activemodel);
+                                            player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}VIP model set to: {ChatColors.Red}{activemodel}");
                                             Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
 
                                         });
@@ -70,17 +70,15 @@ namespace STCustomModels
 
                             if (activemodel != null)
                             {
-                                AddTimer(2f, () =>
-                                {
                                     Server.NextFrame(() =>
                                     {
                                         if (player.IsBot || !player.IsValid || player == null) return;
                                         //player.Respawn();
                                         player.Pawn.Value.SetModel(activemodel);
+                                        player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} - {ChatColors.Default}Custom model set to: {ChatColors.Red}{activemodel}");
                                         Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
 
                                     });
-                                });
                             }
                         });
                     }//
