@@ -15,7 +15,7 @@ namespace STCustomModels
     public partial class STCustomModels : BasePlugin
     {
         public override string ModuleName => "STCustomModels";
-        public override string ModuleVersion => $"1.0 - {DateTime.UtcNow}"; // im too lazy to fix this
+        public override string ModuleVersion => $"1.1 - {new DateTime(Builtin.CompileTime, DateTimeKind.Utc)}"; // im too lazy to fix this
         public override string ModuleAuthor => "heartbreakhotel (deafps)";
         public override string ModuleDescription => "A plugin for custom player models in SharpTimer";
 
