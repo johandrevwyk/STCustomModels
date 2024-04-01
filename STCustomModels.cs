@@ -44,8 +44,6 @@ namespace STCustomModels
 
         public async Task PrintAllModels(CCSPlayerController? player)
         {
-            try
-            {
                 ModelDir = await GetModelsValue();
                 var models = Configuration!.Models;
 
@@ -55,20 +53,7 @@ namespace STCustomModels
                 {
                     Server.NextFrame(() => player.PrintToChat($" {ChatColors.Red}{Configuration!.General.ChatPrefix} -{ChatColors.Default} #{index++}: {model.Name}"));
                 }
-                
-            }
-            catch (FileNotFoundException)
-            {
-                Console.WriteLine("JSON file not found.");
-            }
-            catch (JsonException)
-            {
-                Console.WriteLine("Error parsing JSON.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error: " + ex.Message);
-            }
+    
         }
 
         public async Task SetModel(CCSPlayerController? player, string arg, string steamid)
