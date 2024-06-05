@@ -1,12 +1,6 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
-using Microsoft.Extensions.Configuration;
-using MySqlConnector;
-using Newtonsoft.Json;
-using static CounterStrikeSharp.API.Core.Listeners;
 
 namespace STCustomModels
 {
@@ -21,6 +15,7 @@ namespace STCustomModels
         {
             CCSPlayerController? player = @event.Userid;
 
+            if (player == null) return HookResult.Continue;
             CCSPlayerPawn? pawn = player.PlayerPawn.Value;
 
             if (pawn == null || !pawn.IsValid)
@@ -32,9 +27,9 @@ namespace STCustomModels
             }
             else
             {
-                AddTimer(2f, () => 
+                AddTimer(0.5f, () =>
                 {
-                    if (Configuration?.General.RequiresVIP ?? true)
+                    if (Config.General.RequiresVIP == true)
                     {
                         GetVipStatusAsync(player.SteamID.ToString()).ContinueWith(vipTask =>
                         {
@@ -46,21 +41,20 @@ namespace STCustomModels
 
                                     if (activemodel != null)
                                     {
-
                                         Server.NextFrame(() =>
                                         {
                                             if (player.IsBot || !player.IsValid || player == null) return;
                                             //player.Respawn();
-                                            player.Pawn.Value.SetModel(activemodel);
-                                            Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
-
+                                            player.Pawn.Value!.SetModel(activemodel);
+                                            player.PrintToChat($" {ChatColors.Red}{Config.General.ChatPrefix} - {ChatColors.Default}VIP model set to: {ChatColors.Red}{activemodel}");
+                                            Console.WriteLine($"[STCustomModels] Model set to {activemodel} for {player.PlayerName}");                                         
                                         });
                                     }
                                 });
                             }
-                            return HookResult.Continue;
+                            return HookResult.Handled;
                         });
-                        
+
                     }
                     else
                     {
@@ -70,23 +64,19 @@ namespace STCustomModels
 
                             if (activemodel != null)
                             {
-                                AddTimer(2f, () =>
+                                Server.NextFrame(() =>
                                 {
-                                    Server.NextFrame(() =>
-                                    {
-                                        if (player.IsBot || !player.IsValid || player == null) return;
-                                        //player.Respawn();
-                                        player.Pawn.Value.SetModel(activemodel);
-                                        Console.WriteLine($"[STCustomModels] Model set to {ModelDir} for {player.PlayerName}");
-
-                                    });
+                                    if (player.IsBot || !player.IsValid || player == null) return;
+                                    player.Pawn.Value!.SetModel(activemodel);
+                                    player.PrintToChat($" {ChatColors.Red}{Config.General.ChatPrefix} - {ChatColors.Default}Custom model set to: {ChatColors.Red}{activemodel}");
+                                    Console.WriteLine($"[STCustomModels] Model set to {activemodel} for {player.PlayerName}");                                  
                                 });
                             }
                         });
-                    }//
+                    }
                 });
             }
-            return HookResult.Continue;
+            return HookResult.Handled;
         }
     }
 }

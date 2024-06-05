@@ -9,23 +9,28 @@ namespace STCustomModels
     {
         private async Task<MySqlConnection> OpenDatabaseConnectionAsync()
         {
-            var connection = new MySqlConnection($"Server={Configuration!.Database.HostName};Port={Configuration!.Database.Port};Database={Configuration!.Database.DataBase};Uid={Configuration!.Database.Username};Pwd={Configuration!.Database.Password};");
+            var connectionString = $"Server={Config.Database.HostName};Port={Config.Database.Port};Database={Config.Database.DataBase};Uid={Config.Database.Username};Pwd={Config.Database.Password};";
+            var connection = new MySqlConnection(connectionString);
             await connection.OpenAsync();
             return connection;
         }
 
         public async Task CreatePlayerModelsTableIfNotExists()
         {
-            using (var connection = await OpenDatabaseConnectionAsync())
+            try
             {
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = "CREATE TABLE IF NOT EXISTS `PlayerModels` (" +
-                                          "`steamid` varchar(255) NOT NULL," +
-                                          "`model` varchar(255) NOT NULL," +
-                                          ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;";
-                    await command.ExecuteNonQueryAsync();
-                }
+                using var connection = await OpenDatabaseConnectionAsync();
+                using var command = connection.CreateCommand();
+                command.CommandText = "CREATE TABLE IF NOT EXISTS `PlayerModels` (" +
+                                      "`steamid` varchar(255) NOT NULL," +
+                                      "`model` varchar(255) NOT NULL," +
+                                      "PRIMARY KEY (`steamid`))";
+                await command.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it accordingly
+                Console.WriteLine($"An error occurred while creating the table: {ex.Message}");
             }
         }
 
