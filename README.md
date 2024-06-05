@@ -9,7 +9,7 @@ Saves/loads models from database specified
 
 [CounterStrikeSharp v239](https://github.com/roflmuffin/CounterStrikeSharp)\
 [SharpTimer](https://github.com/DEAFPS/SharpTimer)\
-[MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager)\
+[MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager)
 
 Edit the config after launching for the first time
 
